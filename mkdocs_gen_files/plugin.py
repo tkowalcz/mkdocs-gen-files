@@ -39,6 +39,16 @@ class GenFilesPlugin(BasePlugin[PluginConfig]):
                         raise PluginError(f"Script {file_name!r} caused {e!r}")
 
         self._edit_paths = dict(ed.edit_paths)
+        # Best-effort workaround for an interaction with `edit_uri_template`:
+        for src_path, path in self._edit_paths.items():
+            try:
+                if path is not None:
+                    f = files.get_file_from_path(src_path)
+                    if f is not None:
+                        f.edit_uri = path
+            except Exception:
+                pass
+
         return ed.files
 
     def on_page_content(self, html, page: Page, config: MkDocsConfig, files: Files):
