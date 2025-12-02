@@ -28,6 +28,25 @@ plugins:
         - gen_pages.py  # or any other name or path
 ```
 
+### Configuration options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `scripts` | list of strings | (required) | List of Python scripts to execute during the build. Paths are relative to **mkdocs.yml**. |
+| `directory` | string | (none) | Optional directory to write generated files into. If not provided, a temporary directory is created automatically. |
+| `cleanup` | boolean | `true` | Whether to delete the directory after the build completes. |
+
+#### Example with all options
+
+```yaml
+plugins:
+  - gen-files:
+      scripts:
+        - gen_pages.py
+      directory: .gen_files_cache  # use a fixed directory instead of a temp dir
+      cleanup: false               # keep the directory after build
+```
+
 Then create such a script **gen_pages.py** (this is relative to the root, *not* to the **docs** directory).
 
 ```python

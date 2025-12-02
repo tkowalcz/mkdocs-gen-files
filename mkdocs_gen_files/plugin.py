@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 import runpy
 import tempfile
 import urllib.parse
@@ -24,13 +26,28 @@ log = logging.getLogger(f"mkdocs.plugins.{__name__}")
 
 class PluginConfig(Config):
     scripts = opt.ListOfItems(opt.File(exists=True))
+    # Optional directory to write generated files into. If not provided, a temp dir is used.
+    directory = opt.Optional(opt.Type(str))
+    # Whether to delete the auto-created temporary directory after build.
+    # Has no effect when a custom directory is provided.
+    cleanup = opt.Type(bool, default=True)
 
 
 class GenFilesPlugin(BasePlugin[PluginConfig]):
     def on_files(self, files: Files, config: MkDocsConfig) -> Files:
-        self._dir = tempfile.TemporaryDirectory(prefix="mkdocs_gen_files_")
+        # Determine working directory for generated files
+        if self.config.directory:
+            self._dir_name = self.config.directory
+            os.makedirs(self._dir_name, exist_ok=True)
+            # Do not auto-clean custom directory provided by the user
+            self._should_cleanup = False
+        else:
+            # Create a temporary directory (without auto-finalizer cleanup)
+            # so that we can honor the cleanup option.
+            self._dir_name = tempfile.mkdtemp(prefix="mkdocs_gen_files_")
+            self._should_cleanup = bool(self.config.cleanup)
 
-        with FilesEditor(files, config, self._dir.name) as ed:
+        with FilesEditor(files, config, self._dir_name) as ed:
             for file_name in self.config.scripts:
                 try:
                     runpy.run_path(file_name)
@@ -71,7 +88,11 @@ class GenFilesPlugin(BasePlugin[PluginConfig]):
 
     @event_priority(-100)
     def on_post_build(self, config: MkDocsConfig):
-        self._dir.cleanup()
+        if self._should_cleanup:
+            try:
+                shutil.rmtree(self._dir_name, ignore_errors=True)
+            except Exception:
+                pass
 
         unused_edit_paths = {k: str(v) for k, v in self._edit_paths.items() if v}
         if unused_edit_paths:
